@@ -30,11 +30,15 @@ const QuizPage = () => {
 
       // Extract options inside the square brackets `[]`
       const optionsMatch = optionsPart.match(/\[([^\]]+)\]/); // Find everything inside square brackets
-      const options = optionsMatch ? optionsMatch[1].split("\n").map((opt) => opt.trim()) : []; // Split by newline or other delimiters
+      const options = optionsMatch
+        ? optionsMatch[1].split("\n").map((opt) => opt.trim())
+        : []; // Split by newline or other delimiters
 
       // Find the correct answer (after the square brackets)
       const correctAnswerMatch = optionsPart.match(/\(([a-d])\)/);
-      const correctAnswerLetter = correctAnswerMatch ? correctAnswerMatch[1] : null;
+      const correctAnswerLetter = correctAnswerMatch
+        ? correctAnswerMatch[1]
+        : null;
 
       return {
         question: questionPart.trim(),
@@ -47,9 +51,13 @@ const QuizPage = () => {
 
   // Handle answer selection
   const handleAnswerSelect = (index) => {
+    // Prevent selecting another answer once the correct one has been chosen
+    if (isCorrect) return;
+
     setSelectedAnswer(index);
     const correctAnswerLetter = quizContent[currentQuestion].correctAnswer; // Get correct answer letter (e.g., "c")
-    const selectedOptionLetter = quizContent[currentQuestion].options[index].charAt(0); // Get the letter of the selected option (e.g., "a", "b", etc.)
+    const selectedOptionLetter =
+      quizContent[currentQuestion].options[index].charAt(0); // Get the letter of the selected option (e.g., "a", "b", etc.)
 
     if (selectedOptionLetter === correctAnswerLetter) {
       setFeedback("Correct answer!");
@@ -61,7 +69,6 @@ const QuizPage = () => {
       setIsCorrect(false); // Keep Next button hidden since the answer is incorrect
     }
   };
-
 
   // Move to the next question
   const handleNextQuestion = () => {
@@ -80,7 +87,7 @@ const QuizPage = () => {
     <div className="min-h-screen bg-black bg-gradient-preppal text-white flex flex-col items-center justify-center">
       {/* PrepPal Header in the top left */}
       <header className="absolute top-0 left-0 p-4">
-      <div>
+        <div>
           <Link href="/">
             <Image
               src="/images/logo.JPG" // Make sure the path is correct
@@ -97,7 +104,9 @@ const QuizPage = () => {
 
       {/* Question Slide */}
       <div className="bg-black border border-gray-700 p-6 rounded-lg shadow-lg w-3/4">
-        <h2 className="text-2xl font-semibold mb-4">{quizContent[currentQuestion].question}</h2>
+        <h2 className="text-2xl font-semibold mb-4">
+          {quizContent[currentQuestion].question}
+        </h2>
 
         {/* Options */}
         <ul>
@@ -112,7 +121,8 @@ const QuizPage = () => {
                   ? "bg-red-500"
                   : "bg-gray-800"
               }`} // Turn green if correct, red if wrong
-              onClick={() => handleAnswerSelect(index)}
+              onClick={() => handleAnswerSelect(index)} // Allow selection only if not correct
+              style={{ pointerEvents: isCorrect ? "none" : "auto" }} // Disable click once the correct answer is selected
             >
               {option}
             </li>
