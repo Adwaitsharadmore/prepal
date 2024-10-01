@@ -158,6 +158,7 @@ const QuizPage = () => {
           <div className="text-lg font-bold text-green-500 mb-4">
             Congrats! You have completed the quiz.
           </div>
+          
 
           {/* Back button */}
           <Link href="/responsePage">
