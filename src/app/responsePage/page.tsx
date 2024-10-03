@@ -9,6 +9,9 @@ const ResponsePage = () => {
   const [textPrompt, setTextPrompt] = useState(""); // State to store the text prompt
   const [loadingCheatsheet, setLoadingCheatsheet] = useState(false); // Loading state for cheatsheet
   const [loadingQuiz, setLoadingQuiz] = useState(false); // Loading state for quiz
+  const [loadingMnemonics, setLoadingMnemonics] = useState(false); // Loading state for mnemonics
+  const [selectedOption, setSelectedOption] = useState(""); // State to track which option is selected (Detailed or Precise)
+  const [errorMessage, setErrorMessage] = useState(""); // State for error message
 
   const handleFileChange = (event) => {
     const selectedFile = event.target.files[0];
@@ -28,11 +31,30 @@ const ResponsePage = () => {
       return;
     }
 
+    if (!selectedOption) {
+      setErrorMessage("Please select if you want a detailed or precise cheatsheet first");
+      return;
+    }
+
     setLoadingCheatsheet(true);
+    setErrorMessage(""); // Clear error message on valid selection
+
+    let customPrompt = textPrompt || ""; // Use any additional prompt provided by the user
+
+    // Modify the prompt based on the selection
+    if (selectedOption === "Detailed") {
+      customPrompt =
+        customPrompt ||
+        "Please create a cheat sheet based on the provided document. Format the main titles using curly brackets {}. Format subtopics using square brackets []. Present each relevant detail as bullet points under the corresponding subtopic. Ensure that all text is in normal font. The format should strictly follow this structure: {Main Title} [Subtopic] - Bullet point 1 - Bullet point 2. Make sure to use this exact format throughout the entire cheat sheet. Write the details in bullet points using simple understandable language. Provide further explanation of the relevant topics using your own knowledge and not just what is provided in the document. Expand on each bullet point with in-depth explanations, context, and additional insights to ensure a comprehensive and thorough understanding of the topic."; // Add your detailed prompt here
+    } else if (selectedOption === "Precise") {
+      customPrompt =
+        customPrompt ||
+        "Please create a cheat sheet based on the provided document. Format the main titles using curly brackets {}. Format subtopics using square brackets []. Present each relevant detail as bullet points under the corresponding subtopic. Ensure that all text is in normal font. The format should strictly follow this structure: {Main Title} [Subtopic] - Bullet point 1 - Bullet point 2. Make sure to use this exact format throughout the entire cheat sheet. Write the details in bullet points using simple understandable language. Provide further explaination of the releavant topics using your own knowledge and not just what is provided in the document. Make this answer more precise and relatively shorter with the bullet points being straight to the point."; // Add your precise prompt here
+    }
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("textPrompt", textPrompt);
+    formData.append("textPrompt", customPrompt);
 
     try {
       const response = await fetch("http://localhost:3001/upload-and-generate", {
@@ -48,7 +70,7 @@ const ResponsePage = () => {
     }
   };
 
-  // Function to handle quiz generation and redirect to quizPage with the quiz content
+  // Function to handle quiz generation
   const handleGenerateQuiz = async () => {
     if (!file) {
       alert("Please upload a file");
@@ -84,27 +106,57 @@ const ResponsePage = () => {
       setLoadingQuiz(false);
     }
   };
-  
+
+  // Function to handle mnemonics generation
+  const handleGenerateMnemonics = async () => {
+    if (!file) {
+      alert("Please upload a file");
+      return;
+    }
+
+    setLoadingMnemonics(true);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("textPrompt", "Please create mnemonics for the file uploaded that will help to memorize the key concepts. Format the main titles using curly braces and subtopics using square brackets. For each topic, generate a mnemonic that utilizes the best method for memorization, selecting from acronyms, acrostics, associations, chunking, method of loci, songs, and rhymes. Where appropriate, combine techniques, such as using both an acronym and a rhyme, to enhance retention. Use acronyms by taking the first letters of each key term to form a simple, memorable word or phrase, and include an explanation to clarify the connection between the acronym and the concept. Create acrostics by forming a phrase or sentence where the first letter of each word represents an important term in the topic. Use association to link the new concept to familiar knowledge or experiences for building a meaningful connection. Apply chunking to break down complex or multi-step processes into smaller, more digestible parts. Use the method of loci to associate key concepts with specific locations or a journey to visualize and recall the information. Create simple songs or rhymes that describe the topic in a fun, engaging way. For each topic, ensure that the mnemonic is not just an abbreviation but also provides additional context or visualization where possible. Select the most effective mnemonic method based on the topic's complexity, and include a short explanation after each mnemonic to clarify how it aids in memorization. Make sure to use this exact format throughout the entire mnemonic generation."); // Placeholder for your mnemonic prompt
+
+    try {
+      const response = await fetch("http://localhost:3001/upload-and-generate-mnemonics", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+
+      // Handle mnemonics generation result, you can store or display it in the same area as cheatsheet
+      setCheatsheetContent(data.generatedMnemonics); // Display mnemonics in cheatsheet area for now
+    } catch (error) {
+      console.error("Error fetching mnemonics:", error);
+    } finally {
+      setLoadingMnemonics(false);
+    }
+  };
+
+  const toggleSelection = (option) => {
+    setSelectedOption(selectedOption === option ? "" : option);
+  };
+
+  // Updated renderCheatsheetAsList function to handle asterisks replacement
   const renderCheatsheetAsList = () => {
     if (!cheatsheetContent) return null;
 
-    // Split the cheatsheet content by double newlines to separate sections
     const sections = cheatsheetContent.split("\n\n").filter((section) => section.trim() !== "");
 
     return (
       <div>
         {sections.map((section, index) => {
-          // Split section by newlines to separate the lines
           const lines = section.split("\n").filter((line) => line.trim() !== "");
-          
+
           return (
             <div key={index} className="mb-6">
               {lines.map((line, lineIndex) => {
-                // Remove hyphens at the start of lines
                 const cleanedLine = line.replace(/^\-\s*/, "").trim();
 
                 if (cleanedLine.startsWith("{") && cleanedLine.endsWith("}")) {
-                  // Main title with curly brackets
                   const mainTitle = cleanedLine.replace(/^\{(.*?)\}$/, "$1");
                   return (
                     <h1 key={lineIndex} className="font-semibold text-3xl text-white mb-4">
@@ -112,7 +164,6 @@ const ResponsePage = () => {
                     </h1>
                   );
                 } else if (cleanedLine.startsWith("[") && cleanedLine.endsWith("]")) {
-                  // Subtopic with square brackets
                   const subtopic = cleanedLine.replace(/^\[(.*?)\]$/, "$1");
                   return (
                     <h2 key={lineIndex} className="font-semibold text-xl text-white mb-2">
@@ -120,12 +171,14 @@ const ResponsePage = () => {
                     </h2>
                   );
                 } else {
-                  // Regular bullet points without hyphens
+                  // Detect asterisks for bold/italic formatting and replace them with <strong> or <em> tags
+                  const formattedLine = cleanedLine
+                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Replace **bold** with <strong>
+                    .replace(/\*(.*?)\*/g, "<em>$1</em>"); // Replace *italic* with <em>
+
                   return (
                     <ul key={lineIndex} className="list-disc pl-5">
-                      <li className="text-lg text-white mb-2">
-                        {cleanedLine} {/* Display points as clean bullet points */}
-                      </li>
+                      <li className="text-lg text-white mb-2" dangerouslySetInnerHTML={{ __html: formattedLine }}></li>
                     </ul>
                   );
                 }
@@ -139,19 +192,17 @@ const ResponsePage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-preppal text-white">
- 
       <div>
-          <Link href="/">
-            <Image
-              src="/images/logo.JPG" // Make sure the path is correct
-              alt="PrepPal Logo"
-              width={100}
-              height={100}
-              className="object-cover rounded-full"
-            />
-          </Link>
-        </div>
-
+        <Link href="/">
+          <Image
+            src="/images/logo.JPG"
+            alt="PrepPal Logo"
+            width={100}
+            height={100}
+            className="object-cover rounded-full"
+          />
+        </Link>
+      </div>
 
       <div className="flex-1 flex flex-col justify-center items-center">
         <div className="min-h-screen flex-1 flex justify-center items-center flex-col">
@@ -170,60 +221,87 @@ const ResponsePage = () => {
             onSubmit={handleSubmit}
             className="w-full max-w-4xl bg-black border border-gray-700 shadow-md rounded-lg p-6 mt-6"
           >
-<div className="mb-4">
-  <label className="block text-lg font-medium text-white">
-    Upload File
-  </label>
-  <input
-    type="file"
-    onChange={handleFileChange}
-    className="hidden" // Hide the default file input
-    id="file-upload"
-  />
-  <label
-    htmlFor="file-upload"
-    className="cursor-pointer mt-2 px-4 py-2 bg-white text-black border rounded-full inline-block text-center hover:bg-gray-700 transition-colors"
-  >
-    Choose File
-  </label>
-  {file && (
-    <p className="text-white mt-2">
-      Selected file: <span className="font-semibold">{file.name}</span>
-    </p>
-  )}
-</div>
+            <div className="mb-4">
+              <label className="block text-lg font-medium text-white">Upload File</label>
+              <input type="file" onChange={handleFileChange} className="hidden" id="file-upload" />
+              <label
+                htmlFor="file-upload"
+                className="cursor-pointer mt-2 px-4 py-2 bg-white text-black border rounded-full inline-block text-center hover:bg-gray-700 transition-colors"
+              >
+                Choose File
+              </label>
+              {file && (
+                <p className="text-white mt-2">
+                  Selected file: <span className="font-semibold">{file.name}</span>
+                </p>
+              )}
+            </div>
 
-            <div className="mb-4 bg-black  rounded-lg">
-  <label className="block text-lg font-medium text-white">
-    Text Prompt (Optional)
-  </label>
-  <input
-    type="text"
-    value={textPrompt}
-    onChange={(e) => setTextPrompt(e.target.value)}
-    className="mt-2 p-2 border border-gray-500 rounded w-full bg-black text-white"
-    placeholder="Enter any additional prompt (optional)"
-  />
-</div>
+            <div className="mb-4 bg-black rounded-lg">
+              <label className="block text-lg font-medium text-white">Text Prompt (Optional)</label>
+              <input
+                type="text"
+                value={textPrompt}
+                onChange={(e) => setTextPrompt(e.target.value)}
+                className="mt-2 p-2 border border-gray-500 rounded w-full bg-black text-white"
+                placeholder="Enter any additional prompt (optional)"
+              />
+            </div>
 
+            {/* Select an option */}
+            <div className="mb-4">
+              <label className="block text-lg font-medium text-white mb-2">Select an option:</label>
+              <div className="flex justify-start gap-4">
+                <button
+                  type="submit"
+                  className={`bg-${loadingCheatsheet ? "yellow-500" : "white"} text-black px-4 py-2 rounded-full`}
+                  disabled={loadingCheatsheet}
+                >
+                  {loadingCheatsheet ? "Generating..." : "Generate Cheatsheet"}
+                </button>
+                <button
+                  type="button"
+                  className={`bg-${loadingQuiz ? "yellow-500" : "white"} text-black px-4 py-2 rounded-full ml-4`}
+                  onClick={handleGenerateQuiz}
+                  disabled={loadingQuiz}
+                >
+                  {loadingQuiz ? "Generating..." : "Generate Quiz"}
+                </button>
 
-            {/* Generate Cheatsheet Button */}
-            <button
-              type="submit"
-              className="bg-white text-black px-4 py-2 rounded-full"
-              disabled={loadingCheatsheet}
-            >
-              {loadingCheatsheet ? "Generating..." : "Generate Cheatsheet"}
-            </button>
-            {/* Generate Quiz Button */}
-            <button
-              type="button"
-              className="bg-white text-black px-4 py-2 rounded-full ml-4"
-              onClick={handleGenerateQuiz}
-              disabled={loadingQuiz}
-            >
-              {loadingQuiz ? "Generating..." : "Generate Quiz"}
-            </button>
+                {/* New Generate Mnemonics Button */}
+                <button
+                  type="button"
+                  className={`bg-${loadingMnemonics ? "yellow-500" : "white"} text-black px-4 py-2 rounded-full ml-4`}
+                  onClick={handleGenerateMnemonics}
+                  disabled={loadingMnemonics}
+                >
+                  {loadingMnemonics ? "Generating..." : "Generate Mnemonics"}
+                </button>
+              </div>
+            </div>
+
+            {/* Error message for selection */}
+            {errorMessage && <p className="text-red-500 mt-2">{errorMessage}</p>}
+
+            {/* Option Buttons for Detailed and Precise */}
+            <div className="mb-4">
+              <div className="flex justify-start gap-4">
+                <button
+                  type="button"
+                  className={`px-3 py-1 rounded-full ${selectedOption === "Detailed" ? "bg-yellow-500 text-black" : "bg-white text-black"}`}
+                  onClick={() => toggleSelection("Detailed")}
+                >
+                  Detailed
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1 rounded-full ${selectedOption === "Precise" ? "bg-yellow-500 text-black" : "bg-white text-black"}`}
+                  onClick={() => toggleSelection("Precise")}
+                >
+                  Precise
+                </button>
+              </div>
+            </div>
           </form>
 
           <div className="w-full max-w-4xl bg-black border border-gray-700 shadow-md rounded-lg p-6 mt-6">
@@ -231,11 +309,7 @@ const ResponsePage = () => {
               {cheatsheetContent ? (
                 renderCheatsheetAsList()
               ) : (
-                <p>
-                  {loadingCheatsheet
-                    ? "Generating your cheatsheet..."
-                    : "Your cheatsheet content will be displayed here once generated."}
-                </p>
+                <p>{loadingCheatsheet ? "Generating your cheatsheet..." : "Your cheatsheet content will be displayed here once generated."}</p>
               )}
             </div>
           </div>
@@ -254,3 +328,4 @@ const ResponsePage = () => {
 };
 
 export default ResponsePage;
+ 

@@ -27,11 +27,11 @@ async function uploadFileWithRetry(filePath, options, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const uploadResponse = await fileManager.uploadFile(filePath, options);
-      return uploadResponse; // Return response if successful
+      return uploadResponse;
     } catch (error) {
       console.error(`Attempt ${attempt} failed:`, error);
-      if (attempt === retries) throw error; // Re-throw after final attempt
-      await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait 2 seconds before retrying
+      if (attempt === retries) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
   }
 }
@@ -48,7 +48,6 @@ app.post('/upload-and-generate', upload.single('file'), async (req, res) => {
   try {
     const filePath = file.path;
 
-    // Upload the file with retries
     const uploadResponse = await uploadFileWithRetry(filePath, {
       mimeType: "application/pdf",
       displayName: file.originalname,
@@ -56,7 +55,6 @@ app.post('/upload-and-generate', upload.single('file'), async (req, res) => {
 
     console.log(`Uploaded file: ${uploadResponse.file.displayName} as ${uploadResponse.file.uri}`);
 
-    // Generate content using the uploaded file and the text prompt
     const result = await model.generateContent([
       {
         fileData: {
@@ -64,16 +62,14 @@ app.post('/upload-and-generate', upload.single('file'), async (req, res) => {
           fileUri: uploadResponse.file.uri,
         },
       },
-      { text: textPrompt || "Please create a cheat sheet based on the provided document. Format the main titles using curly brackets {}. Format subtopics using square brackets []. Present each relevant detail as bullet points under the corresponding subtopic. Ensure that all text is in normal font. The format should strictly follow this structure: {Main Title} [Subtopic] - Bullet point 1 - Bullet point 2. Make sure to use this exact format throughout the entire cheat sheet." },
+      { text: textPrompt },
     ]);
 
-    // Return the generated text as response
     res.json({
       message: "Content generated successfully",
-      generatedText: result.response.text(), // Output the generated text
+      generatedText: result.response.text(),
     });
 
-    // Delete the uploaded file from local storage
     fs.unlinkSync(filePath);
   } catch (error) {
     console.error("Error during file upload or content generation:", error);
@@ -81,30 +77,22 @@ app.post('/upload-and-generate', upload.single('file'), async (req, res) => {
   }
 });
 
-// Route for file upload and quiz generation
-// Route for file upload and quiz generation
+// Route for quiz generation
 app.post('/upload-and-generate-quiz', upload.single('file'), async (req, res) => {
   const { file } = req;
   const { textPrompt } = req.body;
 
-  if (!file) {a
+  if (!file) {
     return res.status(400).json({ error: "No file uploaded" });
   }
 
   try {
     const filePath = file.path;
+    const uploadResponse = await uploadFileWithRetry(filePath, {
+      mimeType: "application/pdf",
+      displayName: file.originalname,
+    });
 
-    // Upload the file with retries
-const uploadResponse = await uploadFileWithRetry(filePath, {
-  mimeType: "application/pdf",
-  displayName: file.originalname,
-});
-
-console.log(`Uploaded file: ${uploadResponse.file.displayName} as ${uploadResponse.file.uri}`);
-
-
-
-    // Generate quiz using the uploaded file and the text prompt
     const result = await model.generateContent([
       {
         fileData: {
@@ -112,24 +100,62 @@ console.log(`Uploaded file: ${uploadResponse.file.displayName} as ${uploadRespon
           fileUri: uploadResponse.file.uri,
         },
       },
-      { text: "Generate 5 multiple-choice questions based on the document provided. Each question should be enclosed in curly brackets {}. List the four options within square brackets [], with each option labeled with a), b), c), and d) on a new line using \n to separate them. Place the correct option in parentheses () as a letter (a, b, c, or d) on a new line after the options. Ensure the output strictly follows this format: {Question text} [a) Option A\nb) Option B\nc) Option C\nd) Option D] \n(Correct option letter). Please use this format exactly as described." },
+      { text: textPrompt || "Generate 5 multiple-choice questions based on the document provided." },
     ]);
 
-    // Log the generated quiz content
-    const generatedText = result.response.text(); // Assuming the AI returns text data
+    const generatedText = result.response.text();
     console.log("Generated quiz content:", generatedText);
 
-    // Return the generated quiz as response
     res.json({
       message: "Quiz generated successfully",
-      generatedQuiz: generatedText, // Output the generated quiz
+      generatedQuiz: generatedText,
     });
 
-    // Delete the uploaded file from local storage
     fs.unlinkSync(filePath);
   } catch (error) {
-    console.error("Error during file upload or quiz generation:", error);
+    console.error("Error during quiz generation:", error);
     res.status(500).json({ error: "File upload or quiz generation failed" });
+  }
+});
+
+// Route for mnemonics generation
+app.post('/upload-and-generate-mnemonics', upload.single('file'), async (req, res) => {
+  const { file } = req;
+  const { textPrompt } = req.body;
+
+  if (!file) {
+    return res.status(400).json({ error: "No file uploaded" });
+  }
+
+  try {
+    const filePath = file.path;
+    const uploadResponse = await uploadFileWithRetry(filePath, {
+      mimeType: "application/pdf",
+      displayName: file.originalname,
+    });
+
+    const result = await model.generateContent([
+      {
+        fileData: {
+          mimeType: uploadResponse.file.mimeType,
+          fileUri: uploadResponse.file.uri,
+        },
+      },
+      { text: textPrompt },
+    ]);
+
+    const generatedText = result.response.text();
+    console.log("Generated mnemonics content:", generatedText);
+
+    res.json({
+      message: "Mnemonics generated successfully",
+      generatedMnemonics: generatedText,
+    });
+
+    fs.unlinkSync(filePath);
+  } catch (error) {
+    console.error("Error during mnemonics generation:", error);
+    res.status(500).json({ error: "File upload or mnemonics generation failed" });
   }
 });
 
