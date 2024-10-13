@@ -1,96 +1,211 @@
 "use client";
 import { useState, useEffect } from "react";
-import Link from "next/link"; // Import Link to handle routing back to the homepage
+import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+
+interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctAnswer: string | null;
+}
 
 const QuizPage = () => {
-  const [quizContent, setQuizContent] = useState([]);
+  const router = useRouter();
+  const [quizContent, setQuizContent] = useState<QuizQuestion[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState(null); // Store the selected answer
-  const [feedback, setFeedback] = useState(null); // Correct/Incorrect feedback
-  const [showAnswer, setShowAnswer] = useState(false); // Whether to show the correct answer or not
-  const [isCorrect, setIsCorrect] = useState(false); // Track whether the selected answer is correct
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [apiFeedback, setApiFeedback] = useState<string | null>(null);
+  const [showFinalFeedback, setShowFinalFeedback] = useState(false);
+  const [tempFilePath, setTempFilePath] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
+  const [isCorrect, setIsCorrect] = useState<boolean>(false);
+  const [attempts, setAttempts] = useState<number[]>([]);
 
-  // Simulate fetching quiz content (Replace this with actual API call or content fetching)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const quiz = urlParams.get("quiz");
+    const tempPath = urlParams.get("tempFilePath");
 
-    if (quiz) {
-      const parsedQuiz = parseQuizContent(quiz); // Parse the quiz content into questions
-      setQuizContent(parsedQuiz);
+    if (quiz && quiz !== "undefined" && quiz.length > 0) {
+      const parsedQuiz = parseQuizContent(quiz);
+      if (parsedQuiz.length > 0) {
+        setQuizContent(parsedQuiz);
+      } else {
+        console.error("Parsed quiz content is empty or invalid.");
+        setQuizContent([]);
+      }
+    } else {
+      console.error("Quiz parameter is missing or invalid.");
+      setQuizContent([]);
+    }
+
+    if (tempPath && tempPath !== "undefined") {
+      setTempFilePath(tempPath);
+    } else {
+      console.error("Temporary file path is missing or invalid.");
     }
   }, []);
 
-  // Function to parse the quiz content and return a list of questions
-  const parseQuizContent = (quiz) => {
-    const questions = quiz.split("{").filter((item) => item.includes("?")); // Split by "{"
-    const parsedQuestions = questions.map((q) => {
-      const [questionPart, optionsPart] = q.split("}"); // Split by "}"
+  useEffect(() => {
+    if (quizContent.length > 0 && attempts.length === 0) {
+      setAttempts(new Array(quizContent.length).fill(0));
+    }
+  }, [quizContent]);
 
-      // Extract options inside the square brackets `[]`
-      const optionsMatch = optionsPart.match(/\[([^\]]+)\]/); // Find everything inside square brackets
-      const options = optionsMatch
-        ? optionsMatch[1].split("\n").map((opt) => opt.trim())
-        : []; // Split by newline or other delimiters
+  useEffect(() => {
+    if (currentQuestion === quizContent.length - 1 && isCorrect) {
+      console.log("Fetching feedback...");
+      fetchFeedback();
+    }
+  }, [currentQuestion, isCorrect, quizContent, attempts]);
 
-      // Find the correct answer (after the square brackets)
-      const correctAnswerMatch = optionsPart.match(/\(([a-d])\)/);
-      const correctAnswerLetter = correctAnswerMatch
-        ? correctAnswerMatch[1]
-        : null;
+  const parseQuizContent = (quiz: string): QuizQuestion[] => {
+    const questions = quiz.split("{").filter((item) => item.includes("?"));
+    return questions
+      .map((q) => {
+        const parts = q.split("}");
+        if (parts.length < 2) {
+          console.error("Invalid question format:", q);
+          return null;
+        }
 
-      return {
-        question: questionPart.trim(),
-        options: options, // Store cleaned options
-        correctAnswer: correctAnswerLetter, // Store the correct answer letter (e.g., "c")
-      };
-    });
-    return parsedQuestions;
+        const [questionPart, optionsPart] = parts;
+        if (!optionsPart) {
+          console.error("Options part is missing for question:", questionPart);
+          return null;
+        }
+
+        const optionsMatch = optionsPart.match(/\[([^\]]+)\]/);
+        const options = optionsMatch
+          ? optionsMatch[1]
+              .split("\n")
+              .map((opt) => opt.trim())
+              .filter((opt) => opt.length > 0)
+          : [];
+
+        const correctAnswerMatch = optionsPart.match(/\(([a-d])\)/);
+        const correctAnswerLetter = correctAnswerMatch
+          ? correctAnswerMatch[1]
+          : null;
+
+        return {
+          question: questionPart.trim(),
+          options: options.slice(0, 4), // Ensure only four options
+          correctAnswer: correctAnswerLetter,
+        };
+      })
+      .filter((q) => q !== null) as QuizQuestion[]; // Filter out any null entries
   };
 
-  // Handle answer selection
-  const handleAnswerSelect = (index) => {
-    // Prevent selecting another answer once the correct one has been chosen
-    if (isCorrect) return;
+  const fetchFeedback = async () => {
+    if (!tempFilePath) {
+      console.error('Temporary file path is missing.');
+      return;
+    }
 
-    setSelectedAnswer(index);
-    const correctAnswerLetter = quizContent[currentQuestion].correctAnswer; // Get correct answer letter (e.g., "c")
-    const selectedOptionLetter =
-      quizContent[currentQuestion].options[index].charAt(0); // Get the letter of the selected option (e.g., "a", "b", etc.)
+    try {
+      // Fetch feedback
+      const response = await fetch('/api/get-feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          questions: quizContent.map(q => q.question),
+          attempts,
+          tempFilePath,
+        }),
+      });
 
-    if (selectedOptionLetter === correctAnswerLetter) {
-      setFeedback("Correct answer!");
-      setShowAnswer(false); // No need to show the correct answer if the selected one is correct
-      setIsCorrect(true); // Mark the answer as correct, so the Next button appears
-    } else {
-      setFeedback("Try again!"); // Only show "Try again" on incorrect answer
-      setShowAnswer(false); // Do not show the correct answer
-      setIsCorrect(false); // Keep Next button hidden since the answer is incorrect
+      if (!response.ok) {
+        throw new Error('Failed to fetch feedback');
+      }
+
+      const data = await response.json();
+      setApiFeedback(data.feedback.join('\n'));
+
+      // Display feedback
+      setShowFinalFeedback(true);
+
+      // Call the delete API after feedback is displayed
+      await fetch('/api/delete-temp-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tempFilePath: data.tempFilePath }),
+      });
+    } catch (error) {
+      console.error('Error fetching feedback:', error);
+      setError('Could not fetch feedback. Try again later.');
     }
   };
 
-  // Move to the next question
+  const handleAnswerSelect = (index: number) => {
+    if (isCorrect) return;
+
+    setSelectedAnswer(index);
+    const correct =
+      quizContent[currentQuestion].correctAnswer ===
+      String.fromCharCode(97 + index);
+    setFeedback(correct ? "Correct answer!" : "Incorrect answer.");
+    setIsCorrect(correct);
+    setAttempts((prev) => {
+      const newAttempts = prev.map((attempt, idx) =>
+        idx === currentQuestion ? attempt + 1 : attempt
+      );
+      return newAttempts;
+    });
+  };
+
   const handleNextQuestion = () => {
-    setFeedback(null);
-    setSelectedAnswer(null);
-    setShowAnswer(false);
-    setIsCorrect(false); // Reset the correct answer status for the next question
-    setCurrentQuestion((prev) => prev + 1);
+    if (currentQuestion < quizContent.length - 1) {
+      setFeedback(null);
+      setSelectedAnswer(null);
+      setIsCorrect(false);
+      setCurrentQuestion((prev) => prev + 1);
+    } else {
+      handleQuizCompletion();
+    }
+  };
+
+  const handleQuizCompletion = () => {
+    if (quizContent.length === 0) {
+      setError('No quiz content available.');
+      return;
+    }
+
+    if (!tempFilePath) {
+      setError('Temporary file path is missing.');
+      return;
+    }
+
+    fetchFeedback();
+    setShowFinalFeedback(true);
   };
 
   if (!quizContent.length) {
-    return <div>Loading quiz...</div>;
+    return (
+      <div className="min-h-screen bg-black bg-gradient-preppal text-white flex flex-col items-center justify-center">
+        <h1 className="text-4xl font-semibold mb-6">Loading...</h1>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-black bg-gradient-preppal text-white flex flex-col items-center justify-center">
-      {/* PrepPal Header in the top left */}
+      {error && (
+        <div className="bg-red-500 text-white p-4 rounded mb-4">
+          {error}
+        </div>
+      )}
       <header className="absolute top-0 left-0 p-4">
         <div>
           <Link href="/">
             <Image
-              src="/images/logo.JPG" // Make sure the path is correct
+              src="/images/logo.JPG"
               alt="PrepPal Logo"
               width={100}
               height={100}
@@ -102,35 +217,46 @@ const QuizPage = () => {
 
       <h1 className="text-4xl font-semibold mb-6">Here's your quiz!</h1>
 
-      {/* Question Slide */}
-      <div className="bg-black border border-gray-700 p-6 rounded-lg shadow-lg w-3/4">
-        <h2 className="text-2xl font-semibold mb-4">
-          {quizContent[currentQuestion].question}
-        </h2>
+      {!showFinalFeedback ? (
+        <div className="bg-black border border-gray-700 p-6 rounded-lg shadow-lg w-3/4">
+          <h2 className="text-2xl font-semibold mb-4">
+            {quizContent[currentQuestion]?.question}
+          </h2>
 
-        {/* Options */}
-        <ul>
-          {quizContent[currentQuestion].options.map((option, index) => (
-            <li
-              key={index}
-              className={`border p-4 rounded-lg my-2 cursor-pointer 
-              ${
-                selectedAnswer === index && feedback === "Correct answer!"
-                  ? "bg-green-500"
-                  : selectedAnswer === index
-                  ? "bg-red-500"
-                  : "bg-gray-800"
-              }`} // Turn green if correct, red if wrong
-              onClick={() => handleAnswerSelect(index)} // Allow selection only if not correct
-              style={{ pointerEvents: isCorrect ? "none" : "auto" }} // Disable click once the correct answer is selected
-            >
-              {option}
-            </li>
-          ))}
-        </ul>
-      </div>
+          <ul>
+            {quizContent[currentQuestion]?.options.map((option, index) => (
+              <li
+                key={index}
+                className={`border p-4 rounded-lg my-2 cursor-pointer 
+                ${
+                  selectedAnswer === index && feedback === "Correct answer!"
+                    ? "bg-green-500"
+                    : selectedAnswer === index
+                    ? "bg-red-500"
+                    : "bg-gray-800"
+                }`}
+                onClick={() => handleAnswerSelect(index)}
+              >
+                {option}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <div className="bg-black border border-gray-700 p-6 rounded-lg shadow-lg w-3/4">
+          <h2 className="text-2xl font-semibold mb-4">Quiz Completed!</h2>
+          {apiFeedback ? (
+            <div className="mt-2 text-white">
+              {apiFeedback.split("\n").map((part, index) => (
+                <p key={index}>{part}</p>
+              ))}
+            </div>
+          ) : (
+            <div>No additional feedback required!</div>
+          )}
+        </div>
+      )}
 
-      {/* Feedback */}
       {feedback && (
         <div
           className={`mt-4 text-lg font-semibold ${
@@ -141,32 +267,13 @@ const QuizPage = () => {
         </div>
       )}
 
-      {/* Display Next or Well done message based on the current question */}
-      {isCorrect && currentQuestion < quizContent.length - 1 && (
+      {isCorrect && (
         <button
-          className="mt-6 bg-black text-white border border-gray-700 px-4 py-2 rounded-full"
           onClick={handleNextQuestion}
+          className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-4"
         >
-          Next
+          {currentQuestion < quizContent.length - 1 ? "Next Question" : "Complete Quiz"}
         </button>
-      )}
-
-      {/* Congrats! You have completed the quiz. text and Back button - Only display after the last question */}
-      {isCorrect && currentQuestion === quizContent.length - 1 && (
-        <div className="text-center mt-8">
-          {/* "Congrats! You have completed the quiz." text */}
-          <div className="text-lg font-bold text-green-500 mb-4">
-            Congrats! You have completed the quiz.
-          </div>
-          
-
-          {/* Back button */}
-          <Link href="/responsePage">
-            <label className="flex items-center justify-center w-58 p-4 bg-black text-white border rounded-full cursor-pointer hover:bg-custom-hover transition-colors">
-              <span className="font-bold">Back</span>
-            </label>
-          </Link>
-        </div>
       )}
     </div>
   );

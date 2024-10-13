@@ -3,15 +3,21 @@ import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
-const ResponsePage = () => {
-  const [cheatsheetContent, setCheatsheetContent] = useState(null);
-  const [file, setFile] = useState(null); // State to store the uploaded file
-  const [textPrompt, setTextPrompt] = useState(""); // State to store the text prompt
-  const [loadingCheatsheet, setLoadingCheatsheet] = useState(false); // Loading state for cheatsheet
-  const [loadingQuiz, setLoadingQuiz] = useState(false); // Loading state for quiz
+interface FileData {
+  name: string;
+  path: string;
+}
 
-  const handleFileChange = (event) => {
-    const selectedFile = event.target.files[0];
+const ResponsePage: React.FC = () => {
+  const [cheatsheetContent, setCheatsheetContent] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [textPrompt, setTextPrompt] = useState<string>("");
+  const [loadingCheatsheet, setLoadingCheatsheet] = useState<boolean>(false);
+  const [loadingQuiz, setLoadingQuiz] = useState<boolean>(false);
+  const [tempFilePath, setTempFilePath] = useState<string | null>(null);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
     } else {
@@ -19,8 +25,7 @@ const ResponsePage = () => {
     }
   };
 
-  // Function to handle cheatsheet generation
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!file) {
@@ -39,6 +44,9 @@ const ResponsePage = () => {
         method: "POST",
         body: formData,
       });
+      if (!response.ok) {
+        throw new Error("Failed to generate cheatsheet");
+      }
       const data = await response.json();
       setCheatsheetContent(data.generatedText);
     } catch (error) {
@@ -48,7 +56,6 @@ const ResponsePage = () => {
     }
   };
 
-  // Function to handle quiz generation and redirect to quizPage with the quiz content
   const handleGenerateQuiz = async () => {
     if (!file) {
       alert("Please upload a file");
@@ -61,7 +68,7 @@ const ResponsePage = () => {
     formData.append("file", file);
     formData.append(
       "textPrompt",
-      "Can you generate 5 multiple-choice questions based on the key concepts in the document?"
+      "Generate 5 multiple-choice questions based on the document provided. Each question should be enclosed in curly brackets {}. List the four options within square brackets [], with each option labeled with a), b), c), and d) on a new line using \n to separate them. Place the correct option in parentheses () as a letter (a, b, c, or d) on a new line after the options. Ensure the output strictly follows this format: {Question text} [a) Option A\nb) Option B\nc) Option C\nd) Option D] \n(Correct option letter). Please use this format exactly as described."
     );
 
     try {
@@ -72,39 +79,71 @@ const ResponsePage = () => {
           body: formData,
         }
       );
+      if (!response.ok) {
+        throw new Error("Failed to generate quiz");
+      }
       const data = await response.json();
+
+      // Store the tempFilePath for later use
+      setTempFilePath(data.tempFilePath);
 
       // Redirect to the new quiz page with generated quiz content
       window.location.href = `/quizPage?quiz=${encodeURIComponent(
         data.generatedQuiz
-      )}`;
+      )}&tempFilePath=${encodeURIComponent(data.tempFilePath)}`;
     } catch (error) {
       console.error("Error fetching quiz content:", error);
     } finally {
       setLoadingQuiz(false);
     }
   };
-  
+
+  const fetchFeedback = async (questions: string[], attempts: number[]) => {
+    if (!tempFilePath) {
+      console.error("Temporary file path is missing.");
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/get-feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          questions,
+          attempts,
+          tempFilePath,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch feedback');
+      }
+
+      const data = await response.json();
+      console.log("Feedback received:", data.feedback);
+    } catch (error) {
+      console.error('Error fetching feedback:', error);
+    }
+  };
+
   const renderCheatsheetAsList = () => {
     if (!cheatsheetContent) return null;
 
-    // Split the cheatsheet content by double newlines to separate sections
     const sections = cheatsheetContent.split("\n\n").filter((section) => section.trim() !== "");
 
     return (
       <div>
         {sections.map((section, index) => {
-          // Split section by newlines to separate the lines
           const lines = section.split("\n").filter((line) => line.trim() !== "");
-          
+
           return (
             <div key={index} className="mb-6">
               {lines.map((line, lineIndex) => {
-                // Remove hyphens at the start of lines
                 const cleanedLine = line.replace(/^\-\s*/, "").trim();
 
                 if (cleanedLine.startsWith("{") && cleanedLine.endsWith("}")) {
-                  // Main title with curly brackets
                   const mainTitle = cleanedLine.replace(/^\{(.*?)\}$/, "$1");
                   return (
                     <h1 key={lineIndex} className="font-semibold text-3xl text-white mb-4">
@@ -112,7 +151,6 @@ const ResponsePage = () => {
                     </h1>
                   );
                 } else if (cleanedLine.startsWith("[") && cleanedLine.endsWith("]")) {
-                  // Subtopic with square brackets
                   const subtopic = cleanedLine.replace(/^\[(.*?)\]$/, "$1");
                   return (
                     <h2 key={lineIndex} className="font-semibold text-xl text-white mb-2">
@@ -120,11 +158,10 @@ const ResponsePage = () => {
                     </h2>
                   );
                 } else {
-                  // Regular bullet points without hyphens
                   return (
                     <ul key={lineIndex} className="list-disc pl-5">
                       <li className="text-lg text-white mb-2">
-                        {cleanedLine} {/* Display points as clean bullet points */}
+                        {cleanedLine}
                       </li>
                     </ul>
                   );
@@ -139,19 +176,17 @@ const ResponsePage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-preppal text-white">
- 
       <div>
-          <Link href="/">
-            <Image
-              src="/images/logo.JPG" // Make sure the path is correct
-              alt="PrepPal Logo"
-              width={100}
-              height={100}
-              className="object-cover rounded-full"
-            />
-          </Link>
-        </div>
-
+        <Link href="/">
+          <Image
+            src="/images/logo.JPG"
+            alt="PrepPal Logo"
+            width={100}
+            height={100}
+            className="object-cover rounded-full"
+          />
+        </Link>
+      </div>
 
       <div className="flex-1 flex flex-col justify-center items-center">
         <div className="min-h-screen flex-1 flex justify-center items-center flex-col">
@@ -170,44 +205,42 @@ const ResponsePage = () => {
             onSubmit={handleSubmit}
             className="w-full max-w-4xl bg-black border border-gray-700 shadow-md rounded-lg p-6 mt-6"
           >
-<div className="mb-4">
-  <label className="block text-lg font-medium text-white">
-    Upload File
-  </label>
-  <input
-    type="file"
-    onChange={handleFileChange}
-    className="hidden" // Hide the default file input
-    id="file-upload"
-  />
-  <label
-    htmlFor="file-upload"
-    className="cursor-pointer mt-2 px-4 py-2 bg-white text-black border rounded-full inline-block text-center hover:bg-gray-700 transition-colors"
-  >
-    Choose File
-  </label>
-  {file && (
-    <p className="text-white mt-2">
-      Selected file: <span className="font-semibold">{file.name}</span>
-    </p>
-  )}
-</div>
+            <div className="mb-4">
+              <label className="block text-lg font-medium text-white">
+                Upload File
+              </label>
+              <input
+                type="file"
+                onChange={handleFileChange}
+                className="hidden"
+                id="file-upload"
+              />
+              <label
+                htmlFor="file-upload"
+                className="cursor-pointer mt-2 px-4 py-2 bg-white text-black border rounded-full inline-block text-center hover:bg-gray-700 transition-colors"
+              >
+                Choose File
+              </label>
+              {file && (
+                <p className="text-white mt-2">
+                  Selected file: <span className="font-semibold">{file.name}</span>
+                </p>
+              )}
+            </div>
 
-            <div className="mb-4 bg-black  rounded-lg">
-  <label className="block text-lg font-medium text-white">
-    Text Prompt (Optional)
-  </label>
-  <input
-    type="text"
-    value={textPrompt}
-    onChange={(e) => setTextPrompt(e.target.value)}
-    className="mt-2 p-2 border border-gray-500 rounded w-full bg-black text-white"
-    placeholder="Enter any additional prompt (optional)"
-  />
-</div>
+            <div className="mb-4 bg-black rounded-lg">
+              <label className="block text-lg font-medium text-white">
+                Text Prompt (Optional)
+              </label>
+              <input
+                type="text"
+                value={textPrompt}
+                onChange={(e) => setTextPrompt(e.target.value)}
+                className="mt-2 p-2 border border-gray-500 rounded w-full bg-black text-white"
+                placeholder="Enter any additional prompt (optional)"
+              />
+            </div>
 
-
-            {/* Generate Cheatsheet Button */}
             <button
               type="submit"
               className="bg-white text-black px-4 py-2 rounded-full"
@@ -215,7 +248,6 @@ const ResponsePage = () => {
             >
               {loadingCheatsheet ? "Generating..." : "Generate Cheatsheet"}
             </button>
-            {/* Generate Quiz Button */}
             <button
               type="button"
               className="bg-white text-black px-4 py-2 rounded-full ml-4"
