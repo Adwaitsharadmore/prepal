@@ -22,6 +22,8 @@ const QuizPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean>(false);
   const [attempts, setAttempts] = useState<number[]>([]);
+  const [incorrectQuestions, setIncorrectQuestions] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -53,13 +55,6 @@ const QuizPage = () => {
       setAttempts(new Array(quizContent.length).fill(0));
     }
   }, [quizContent]);
-
-  useEffect(() => {
-    if (currentQuestion === quizContent.length - 1 && isCorrect) {
-      console.log("Fetching feedback...");
-      fetchFeedback();
-    }
-  }, [currentQuestion, isCorrect, quizContent, attempts]);
 
   const parseQuizContent = (quiz: string): QuizQuestion[] => {
     const questions = quiz.split("{").filter((item) => item.includes("?"));
@@ -135,11 +130,13 @@ const QuizPage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ tempFilePath: data.tempFilePath }),
+        body: JSON.stringify({ tempFilePath }),
       });
+
+      console.log('Temporary file deleted successfully');
     } catch (error) {
-      console.error('Error fetching feedback:', error);
-      setError('Could not fetch feedback. Try again later.');
+      console.error('Error fetching feedback or deleting file:', error);
+      setError('Could not fetch feedback or delete file. Try again later.');
     }
   };
 
@@ -152,6 +149,14 @@ const QuizPage = () => {
       String.fromCharCode(97 + index);
     setFeedback(correct ? "Correct answer!" : "Incorrect answer.");
     setIsCorrect(correct);
+
+    if (!correct) {
+      setIncorrectQuestions((prev) => [
+        ...prev,
+        quizContent[currentQuestion].question,
+      ]);
+    }
+
     setAttempts((prev) => {
       const newAttempts = prev.map((attempt, idx) =>
         idx === currentQuestion ? attempt + 1 : attempt
@@ -182,8 +187,39 @@ const QuizPage = () => {
       return;
     }
 
-    fetchFeedback();
-    setShowFinalFeedback(true);
+    if (!isLoading) {
+      setIsLoading(true);
+      fetchFeedback();
+      setShowFinalFeedback(true);
+    }
+  };
+
+  const generatePracticeQuestions = async () => {
+    try {
+      const response = await fetch('/api/generate-practice-questions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ incorrectQuestions, tempFilePath }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate practice questions');
+      }
+
+      const data = await response.json();
+      setQuizContent(data.newQuestions);
+      setCurrentQuestion(0);
+      setSelectedAnswer(null);
+      setFeedback(null);
+      setIsCorrect(false);
+      setAttempts(new Array(data.newQuestions.length).fill(0));
+      setShowFinalFeedback(false);
+    } catch (error) {
+      console.error('Error generating practice questions:', error);
+      setError('Could not generate practice questions. Try again later.');
+    }
   };
 
   if (!quizContent.length) {
@@ -273,6 +309,15 @@ const QuizPage = () => {
           className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-4"
         >
           {currentQuestion < quizContent.length - 1 ? "Next Question" : "Complete Quiz"}
+        </button>
+      )}
+
+      {showFinalFeedback && (
+        <button
+          onClick={generatePracticeQuestions}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4"
+        >
+          Practice More
         </button>
       )}
     </div>

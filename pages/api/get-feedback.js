@@ -51,15 +51,34 @@ export default async function handler(req, res) {
 
 ${fileContent}
 
-Provide feedback summary for these quiz questions where the user took more than one attempt:
+Provide feedback summary for these quiz questions where the user took more than one attempt and refer to the file content to provide the feedback:
 ${questionsWithMultipleAttempts.map((q, index) => `Question: "${q}" (${attempts[index]} attempts)`).join("\n")}`;
 
     const result = await model.generateContent(prompt);
     const generatedFeedback = await result.response.text();
 
+    // Delete the temporary file after feedback generation
+    await fs.unlink(tempFilePath);
+    console.log("Temporary file deleted after feedback generation");
+
+    // Clear the uploads folder if it exists
+    const uploadsDir = path.join(process.cwd(), 'pages', 'api', 'uploads');
+    try {
+      const files = await fs.readdir(uploadsDir);
+      for (const file of files) {
+        await fs.unlink(path.join(uploadsDir, file));
+      }
+      console.log("Uploads folder cleared");
+    } catch (dirError) {
+      if (dirError.code !== 'ENOENT') {
+        console.error("Error clearing uploads folder:", dirError);
+      } else {
+        console.log("Uploads folder does not exist, skipping clear operation");
+      }
+    }
+
     res.json({
       feedback: generatedFeedback.split("\n"),
-      tempFilePath, // Return the tempFilePath for later deletion
     });
   } catch (error) {
     console.error("Error in feedback generation:", error);
