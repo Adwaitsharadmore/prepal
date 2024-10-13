@@ -1,30 +1,22 @@
-import type { Config } from "tailwindcss";
+import type { Config } from 'tailwindcss'
 
 const config: Config = {
-    darkMode: ["class"],
-    content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+  content: [
+    './pages/**/*.{js,ts,jsx,tsx}',    // Tailwind looks for classes in these files
+    './components/**/*.{js,ts,jsx,tsx}',
+    './src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
-  	extend: {
-  		colors: {
-  			background: 'var(--background)',
-  			foreground: 'var(--foreground)',
-  			'custom-bg': '#f6f1eb',
-  			'custom-hover': '#a7ece3'
-  		},
-  		fontFamily: {
-  			inter: ['Inter', 'sans-serif']
-  		},
-  		borderRadius: {
-  			lg: 'var(--radius)',
-  			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
-   		}
-  	}
+    extend: {
+      colors: {
+        cyan: {
+          400: '#22d3ee',
+          500: '#06b6d4',
+        },
+      },
+    },
   },
-  plugins: [require("tailwindcss-animate")],
-};
-export default config;
+  plugins: [],
+}
+
+export default config

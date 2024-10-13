@@ -1,17 +1,29 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import html2pdf from 'html2pdf.js';
 
 const ResponsePage = () => {
   const [cheatsheetContent, setCheatsheetContent] = useState(null);
-  const [file, setFile] = useState(null); // State to store the uploaded file
-  const [textPrompt, setTextPrompt] = useState(""); // State to store the text prompt
-  const [loadingCheatsheet, setLoadingCheatsheet] = useState(false); // Loading state for cheatsheet
-  const [loadingQuiz, setLoadingQuiz] = useState(false); // Loading state for quiz
-  const [loadingMnemonics, setLoadingMnemonics] = useState(false); // Loading state for mnemonics
-  const [selectedOption, setSelectedOption] = useState(""); // State to track which option is selected (Detailed or Precise)
-  const [errorMessage, setErrorMessage] = useState(""); // State for error message
+  const [file, setFile] = useState(null);
+  const [textPrompt, setTextPrompt] = useState("");
+  const [loadingCheatsheet, setLoadingCheatsheet] = useState(false);
+  const [loadingQuiz, setLoadingQuiz] = useState(false);
+  const [loadingMnemonics, setLoadingMnemonics] = useState(false);
+  const [selectedOption, setSelectedOption] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   const handleFileChange = (event) => {
     const selectedFile = event.target.files[0];
@@ -22,7 +34,6 @@ const ResponsePage = () => {
     }
   };
 
-  // Function to handle cheatsheet generation
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -37,19 +48,29 @@ const ResponsePage = () => {
     }
 
     setLoadingCheatsheet(true);
-    setErrorMessage(""); // Clear error message on valid selection
+    setErrorMessage("");
 
-    let customPrompt = textPrompt || ""; // Use any additional prompt provided by the user
+    let customPrompt = textPrompt || "";
 
-    // Modify the prompt based on the selection
     if (selectedOption === "Detailed") {
-      customPrompt =
-        customPrompt ||
-        "Please create a cheat sheet based on the provided document. Format the main titles using curly brackets {}. Format subtopics using square brackets []. Present each relevant detail as bullet points under the corresponding subtopic. Ensure that all text is in normal font. The format should strictly follow this structure: {Main Title} [Subtopic] - Bullet point 1 - Bullet point 2. Make sure to use this exact format throughout the entire cheat sheet. Write the details in bullet points using simple understandable language. Provide further explanation of the relevant topics using your own knowledge and not just what is provided in the document. Expand on each bullet point with in-depth explanations, context, and additional insights to ensure a comprehensive and thorough understanding of the topic."; // Add your detailed prompt here
+      customPrompt = customPrompt || `
+        Create a comprehensive cheat sheet from the provided document. Use the following format:
+
+        1. Main Titles: Enclose in curly brackets {}.
+        2. Subtopics: Enclose in square brackets [].
+        3. Details: Present each detail as a bullet point under the corresponding subtopic.
+
+        Ensure all text is in normal font. Follow this structure consistently:
+
+        - {Main Title}
+          - [Subtopic]
+            - Bullet point 1
+            - Bullet point 2
+
+        Use clear and simple language for bullet points. Provide additional explanations, context, and insights beyond the document to enhance understanding. Expand on each point to ensure a thorough grasp of the topic.
+      `;
     } else if (selectedOption === "Precise") {
-      customPrompt =
-        customPrompt ||
-        "Please create a cheat sheet based on the provided document. Format the main titles using curly brackets {}. Format subtopics using square brackets []. Present each relevant detail as bullet points under the corresponding subtopic. Ensure that all text is in normal font. The format should strictly follow this structure: {Main Title} [Subtopic] - Bullet point 1 - Bullet point 2. Make sure to use this exact format throughout the entire cheat sheet. Write the details in bullet points using simple understandable language. Provide further explaination of the releavant topics using your own knowledge and not just what is provided in the document. Make this answer more precise and relatively shorter with the bullet points being straight to the point."; // Add your precise prompt here
+      customPrompt = customPrompt || "Please create a precise cheat sheet...";
     }
 
     const formData = new FormData();
@@ -70,44 +91,6 @@ const ResponsePage = () => {
     }
   };
 
-  // Function to handle quiz generation
-  const handleGenerateQuiz = async () => {
-    if (!file) {
-      alert("Please upload a file");
-      return;
-    }
-
-    setLoadingQuiz(true);
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append(
-      "textPrompt",
-      "Can you generate 5 multiple-choice questions based on the key concepts in the document?"
-    );
-
-    try {
-      const response = await fetch(
-        "http://localhost:3001/upload-and-generate-quiz",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-      const data = await response.json();
-
-      // Redirect to the new quiz page with generated quiz content
-      window.location.href = `/quizPage?quiz=${encodeURIComponent(
-        data.generatedQuiz
-      )}`;
-    } catch (error) {
-      console.error("Error fetching quiz content:", error);
-    } finally {
-      setLoadingQuiz(false);
-    }
-  };
-
-  // Function to handle mnemonics generation
   const handleGenerateMnemonics = async () => {
     if (!file) {
       alert("Please upload a file");
@@ -118,7 +101,54 @@ const ResponsePage = () => {
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("textPrompt", "Please create mnemonics for the file uploaded that will help to memorize the key concepts. Format the main titles using curly braces and subtopics using square brackets. For each topic, generate a mnemonic that utilizes the best method for memorization, selecting from acronyms, acrostics, associations, chunking, method of loci, songs, and rhymes. Where appropriate, combine techniques, such as using both an acronym and a rhyme, to enhance retention. Use acronyms by taking the first letters of each key term to form a simple, memorable word or phrase, and include an explanation to clarify the connection between the acronym and the concept. Create acrostics by forming a phrase or sentence where the first letter of each word represents an important term in the topic. Use association to link the new concept to familiar knowledge or experiences for building a meaningful connection. Apply chunking to break down complex or multi-step processes into smaller, more digestible parts. Use the method of loci to associate key concepts with specific locations or a journey to visualize and recall the information. Create simple songs or rhymes that describe the topic in a fun, engaging way. For each topic, ensure that the mnemonic is not just an abbreviation but also provides additional context or visualization where possible. Select the most effective mnemonic method based on the topic's complexity, and include a short explanation after each mnemonic to clarify how it aids in memorization. Make sure to use this exact format throughout the entire mnemonic generation."); // Placeholder for your mnemonic prompt
+    formData.append("textPrompt", `
+      Please create effective mnemonics for the uploaded file to help with memorizing key concepts. Follow these specific formatting rules and guidelines:
+
+      Main Titles: Enclose each main topic in curly braces {}.
+      Subtopics: Enclose each subtopic in square brackets [].
+      For each subtopic, generate an appropriate mnemonic using one or more of the following methods:
+
+      Acronyms: Form a memorable word or phrase using the first letters of the key terms. Provide an explanation of how the acronym connects to the concept.
+
+      Example:
+      [Process State Transition]
+      Mnemonic: "RUN IS BLOCKED WAIT."
+      Explanation: The acronym "RIBW" helps recall the states in the process lifecycle—Running, Interrupted, Blocked, Waiting.
+
+      Acrostics: Create a sentence where each word’s first letter represents an important term.
+
+      Example:
+      [Layers of OSI Model]
+      Mnemonic: "Please Do Not Throw Sausage Pizza Away."
+      Explanation: The first letter of each word corresponds to the layers of the OSI model (Physical, Data Link, Network, Transport, Session, Presentation, Application).
+
+      Associations: Link the concept to something familiar or intuitive for easier recall.
+
+      Example:
+      [Interrupt Handling]
+      Mnemonic: "Like answering the phone when someone calls."
+      Explanation: When an interrupt occurs, the CPU stops its current work and answers the interrupt, like answering a ringing phone.
+
+      Chunking: Break down complex concepts into smaller, easier-to-remember parts.
+
+      Example:
+      [Memory Hierarchy]
+      Mnemonic: "L1 Cache -> L2 Cache -> Main Memory -> Disk."
+      Explanation: Breaking the memory hierarchy into levels helps recall the order of memory access speed.
+
+      Method of Loci: Create a vivid journey in which key concepts are associated with specific locations.
+
+      Example:
+      [Database Normalization]
+      Mnemonic: Imagine walking through a house where each room is a normal form, increasing in simplicity and organization.
+
+      Songs/Rhymes: Develop simple, catchy songs or rhymes.
+
+      Example:
+      [Binary Search Algorithm]
+      Mnemonic: "Divide and Conquer, that's the trick, cut in half, it's fast and quick!"
+      Explanation: The rhyme helps recall the divide-and-conquer approach used in binary search.
+    `);
 
     try {
       const response = await fetch("http://localhost:3001/upload-and-generate-mnemonics", {
@@ -127,8 +157,7 @@ const ResponsePage = () => {
       });
       const data = await response.json();
 
-      // Handle mnemonics generation result, you can store or display it in the same area as cheatsheet
-      setCheatsheetContent(data.generatedMnemonics); // Display mnemonics in cheatsheet area for now
+      setCheatsheetContent(data.generatedMnemonics);
     } catch (error) {
       console.error("Error fetching mnemonics:", error);
     } finally {
@@ -136,50 +165,55 @@ const ResponsePage = () => {
     }
   };
 
-  const toggleSelection = (option) => {
-    setSelectedOption(selectedOption === option ? "" : option);
+  const handleGenerateQuiz = () => {
+    alert("Quiz generation is not implemented yet.");
   };
 
-  // Updated renderCheatsheetAsList function to handle asterisks replacement
   const renderCheatsheetAsList = () => {
     if (!cheatsheetContent) return null;
 
     const sections = cheatsheetContent.split("\n\n").filter((section) => section.trim() !== "");
 
     return (
-      <div>
+      <div className="text-black">
         {sections.map((section, index) => {
           const lines = section.split("\n").filter((line) => line.trim() !== "");
+          const title = lines[0].replace(/[\{\}]/g, "").trim(); // Remove curly braces
 
           return (
-            <div key={index} className="mb-6">
-              {lines.map((line, lineIndex) => {
-                const cleanedLine = line.replace(/^\-\s*/, "").trim();
+            <div key={index} className="mb-8">
+              <h2 className="text-3xl font-bold mb-4">{title}</h2>
+              {lines.slice(1).map((line, lineIndex) => {
+                let cleanedLine = line.replace(/^\-\s*/, "").trim();
 
-                if (cleanedLine.startsWith("{") && cleanedLine.endsWith("}")) {
-                  const mainTitle = cleanedLine.replace(/^\{(.*?)\}$/, "$1");
+                // Remove all asterisks and square brackets
+                cleanedLine = cleanedLine.replace(/[\*\[\]]/g, "");
+
+                if (cleanedLine.startsWith("Acronym:") || cleanedLine.startsWith("Acrostic:") || cleanedLine.startsWith("Association:")) {
+                  const [mnemonicType, content] = cleanedLine.split(":");
                   return (
-                    <h1 key={lineIndex} className="font-semibold text-3xl text-white mb-4">
-                      {mainTitle}
-                    </h1>
+                    <p key={lineIndex} className="ml-4 mb-2">
+                      <strong>{mnemonicType}:</strong> {content.trim()}
+                    </p>
                   );
-                } else if (cleanedLine.startsWith("[") && cleanedLine.endsWith("]")) {
-                  const subtopic = cleanedLine.replace(/^\[(.*?)\]$/, "$1");
+                } else if (cleanedLine.startsWith("Explanation:")) {
+                  const explanation = cleanedLine.replace("Explanation:", "").trim();
                   return (
-                    <h2 key={lineIndex} className="font-semibold text-xl text-white mb-2">
-                      {subtopic}
-                    </h2>
+                    <p key={lineIndex} className="ml-4 mb-2">
+                      <strong>Explanation:</strong> {explanation}
+                    </p>
+                  );
+                } else if (cleanedLine.startsWith("-")) {
+                  return (
+                    <p key={lineIndex} className="ml-8 mb-2">
+                      {cleanedLine}
+                    </p>
                   );
                 } else {
-                  // Detect asterisks for bold/italic formatting and replace them with <strong> or <em> tags
-                  const formattedLine = cleanedLine
-                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Replace **bold** with <strong>
-                    .replace(/\*(.*?)\*/g, "<em>$1</em>"); // Replace *italic* with <em>
-
                   return (
-                    <ul key={lineIndex} className="list-disc pl-5">
-                      <li className="text-lg text-white mb-2" dangerouslySetInnerHTML={{ __html: formattedLine }}></li>
-                    </ul>
+                    <h3 key={lineIndex} className="text-xl font-bold mt-4 mb-2">
+                      {cleanedLine}
+                    </h3>
                   );
                 }
               })}
@@ -188,6 +222,42 @@ const ResponsePage = () => {
         })}
       </div>
     );
+  };
+
+  // Define the toggleSelection function to handle option changes
+  const toggleSelection = (option) => {
+    // If the clicked option is already selected, deselect it; otherwise, select the new option.
+    if (selectedOption === option) {
+      setSelectedOption(""); // Deselect if it's the current option
+    } else {
+      setSelectedOption(option); // Select the clicked option
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    const element = document.getElementById('cheatsheet-content');
+    
+    if (!element) {
+      console.error('Cheatsheet content element not found');
+      return;
+    }
+
+    const opt = {
+      margin: 10,
+      filename: 'cheatsheet.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2,
+        useCORS: true,
+        logging: true,
+        letterRendering: true
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save().catch(err => {
+      console.error('Error generating PDF:', err);
+    });
   };
 
   return (
@@ -248,7 +318,6 @@ const ResponsePage = () => {
               />
             </div>
 
-            {/* Select an option */}
             <div className="mb-4">
               <label className="block text-lg font-medium text-white mb-2">Select an option:</label>
               <div className="flex justify-start gap-4">
@@ -261,29 +330,25 @@ const ResponsePage = () => {
                 </button>
                 <button
                   type="button"
-                  className={`bg-${loadingQuiz ? "yellow-500" : "white"} text-black px-4 py-2 rounded-full ml-4`}
-                  onClick={handleGenerateQuiz}
-                  disabled={loadingQuiz}
-                >
-                  {loadingQuiz ? "Generating..." : "Generate Quiz"}
-                </button>
-
-                {/* New Generate Mnemonics Button */}
-                <button
-                  type="button"
                   className={`bg-${loadingMnemonics ? "yellow-500" : "white"} text-black px-4 py-2 rounded-full ml-4`}
                   onClick={handleGenerateMnemonics}
                   disabled={loadingMnemonics}
                 >
                   {loadingMnemonics ? "Generating..." : "Generate Mnemonics"}
                 </button>
+                <button
+                  type="button"
+                  className={`bg-${loadingQuiz ? "yellow-500" : "white"} text-black px-4 py-2 rounded-full ml-4`}
+                  onClick={handleGenerateQuiz}
+                  disabled={loadingQuiz}
+                >
+                  {loadingQuiz ? "Generating..." : "Generate Quiz"}
+                </button>
               </div>
             </div>
 
-            {/* Error message for selection */}
             {errorMessage && <p className="text-red-500 mt-2">{errorMessage}</p>}
 
-            {/* Option Buttons for Detailed and Precise */}
             <div className="mb-4">
               <div className="flex justify-start gap-4">
                 <button
@@ -304,8 +369,8 @@ const ResponsePage = () => {
             </div>
           </form>
 
-          <div className="w-full max-w-4xl bg-black border border-gray-700 shadow-md rounded-lg p-6 mt-6">
-            <div className="text-lg text-white">
+          <div className="w-full max-w-4xl bg-white shadow-md rounded-lg p-6 mt-6">
+            <div id="cheatsheet-content" className="text-lg text-black min-h-[500px]">
               {cheatsheetContent ? (
                 renderCheatsheetAsList()
               ) : (
@@ -313,6 +378,15 @@ const ResponsePage = () => {
               )}
             </div>
           </div>
+
+          {cheatsheetContent && (
+            <button
+              onClick={handleDownloadPDF}
+              className="mt-4 px-4 py-2 bg-white text-black rounded-full hover:bg-gray-200 transition-colors"
+            >
+              Download as PDF
+            </button>
+          )}
 
           <div className="flex gap-4 mt-8">
             <Link href="/">
@@ -328,4 +402,3 @@ const ResponsePage = () => {
 };
 
 export default ResponsePage;
- 
