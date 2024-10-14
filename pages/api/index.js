@@ -31,7 +31,18 @@ const model = genAI.getGenerativeModel({
 });
 
 // Set up multer for file uploads
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadsDir = path.join(__dirname, 'uploads');
+      console.log("Saving file to:", uploadsDir); // Debugging line
+      cb(null, uploadsDir);
+    },
+    filename: (req, file, cb) => {
+      cb(null, file.originalname); // Save with original name
+    },
+  }),
+});
 
 // Function to upload a file with retries
 async function uploadFileWithRetry(filePath, options, retries = 3) {
@@ -61,7 +72,7 @@ app.post('/upload-and-generate', upload.single('file'), async (req, res) => {
   }
 
   try {
-    const filePath = file.path;
+    const filePath = path.join(__dirname, 'uploads', file.originalname);
 
     // Upload the file with retries
     const uploadResponse = await uploadFileWithRetry(filePath, {

@@ -15,11 +15,13 @@ const ResponsePage: React.FC = () => {
   const [loadingCheatsheet, setLoadingCheatsheet] = useState<boolean>(false);
   const [loadingQuiz, setLoadingQuiz] = useState<boolean>(false);
   const [tempFilePath, setTempFilePath] = useState<string | null>(null);
+  const [originalFileName, setOriginalFileName] = useState<string | null>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
+      setOriginalFileName(selectedFile.name); // Store the original file name
     } else {
       alert("No file selected. Please try again.");
     }
@@ -90,7 +92,8 @@ const ResponsePage: React.FC = () => {
       // Redirect to the new quiz page with generated quiz content
       window.location.href = `/quizPage?quiz=${encodeURIComponent(
         data.generatedQuiz
-      )}&tempFilePath=${encodeURIComponent(data.tempFilePath)}`;
+      )}&originalFileName=${encodeURIComponent(file.name)}`;
+
     } catch (error) {
       console.error("Error fetching quiz content:", error);
     } finally {

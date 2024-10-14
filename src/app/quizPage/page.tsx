@@ -18,7 +18,7 @@ const QuizPage = () => {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [apiFeedback, setApiFeedback] = useState<string | null>(null);
   const [showFinalFeedback, setShowFinalFeedback] = useState(false);
-  const [tempFilePath, setTempFilePath] = useState<string>("");
+  const [originalFileName, setOriginalFileName] = useState<string>(""); // Use original file name
   const [error, setError] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean>(false);
   const [attempts, setAttempts] = useState<number[]>([]);
@@ -28,7 +28,7 @@ const QuizPage = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const quiz = urlParams.get("quiz");
-    const tempPath = urlParams.get("tempFilePath");
+    const fileName = urlParams.get("originalFileName"); // Get the original file name
 
     if (quiz && quiz !== "undefined" && quiz.length > 0) {
       const parsedQuiz = parseQuizContent(quiz);
@@ -43,10 +43,10 @@ const QuizPage = () => {
       setQuizContent([]);
     }
 
-    if (tempPath && tempPath !== "undefined") {
-      setTempFilePath(tempPath);
+    if (fileName && fileName !== "undefined") {
+      setOriginalFileName(fileName);
     } else {
-      console.error("Temporary file path is missing or invalid.");
+      console.error("Original file name is missing or invalid.");
     }
   }, []);
 
@@ -95,13 +95,12 @@ const QuizPage = () => {
   };
 
   const fetchFeedback = async () => {
-    if (!tempFilePath) {
-      console.error('Temporary file path is missing.');
+    if (!originalFileName) {
+      console.error('Original file name is missing.');
       return;
     }
 
     try {
-      // Fetch feedback
       const response = await fetch('/api/get-feedback', {
         method: 'POST',
         headers: {
@@ -110,7 +109,7 @@ const QuizPage = () => {
         body: JSON.stringify({
           questions: quizContent.map(q => q.question),
           attempts,
-          tempFilePath,
+          originalFileName, // Use original file name
         }),
       });
 
@@ -120,23 +119,12 @@ const QuizPage = () => {
 
       const data = await response.json();
       setApiFeedback(data.feedback.join('\n'));
-
-      // Display feedback
       setShowFinalFeedback(true);
-
-      // Call the delete API after feedback is displayed
-    /* await fetch('/api/delete-temp-file', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ tempFilePath }),
-      }); */
-
-      console.log('Temporary file deleted successfully');
     } catch (error) {
-      console.error('Error fetching feedback or deleting file:', error);
-      setError('Could not fetch feedback or delete file. Try again later.');
+      console.error('Error fetching feedback:', error);
+      setError('Failed to fetch feedback');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -182,8 +170,8 @@ const QuizPage = () => {
       return;
     }
 
-    if (!tempFilePath) {
-      setError('Temporary file path is missing.');
+    if (!originalFileName) {
+      setError('Original file name is missing.');
       return;
     }
 
@@ -201,7 +189,7 @@ const QuizPage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ incorrectQuestions, tempFilePath }),
+        body: JSON.stringify({ incorrectQuestions, originalFileName }),
       });
 
       if (!response.ok) {
