@@ -236,46 +236,7 @@ app.post('/api/delete-temp-file', async (req, res) => {
 });
 
 // Route for generating practice questions
-app.post('/api/generate-practice-questions', async (req, res) => {
-  const { incorrectQuestions, tempFilePath } = req.body;
 
-  console.log("Received generate-practice-questions request");
-  console.log("Incorrect Questions:", incorrectQuestions);
-  console.log("Temp File Path:", tempFilePath);
-
-  if (!incorrectQuestions || !tempFilePath) {
-    console.error("Missing required data for practice question generation");
-    return res.status(400).json({ error: "Missing required data" });
-  }
-
-  try {
-    // Read the temporary file
-    const tempFileContent = await fs.readFile(tempFilePath, 'utf8');
-    const { fileContent } = JSON.parse(tempFileContent);
-
-    // Generate practice questions using the incorrect questions
-    const result = await model.generateContent([
-      {
-        fileData: {
-          mimeType: "application/pdf",
-          fileUri: fileContent.fileUri,
-        },
-      },
-      { text: `Generate new questions based on these topics: ${incorrectQuestions.join(", ")}. Follow the same format as before.` },
-    ]);
-
-    const generatedText = result.response.text();
-    console.log("Generated practice questions:", generatedText);
-
-    res.json({
-      message: "Practice questions generated successfully",
-      newQuestions: generatedText,
-    });
-  } catch (error) {
-    console.error("Error in practice question generation:", error);
-    res.status(500).json({ error: "Failed to generate practice questions" });
-  }
-});
 
 // Start the server
 app.listen(port, () => {

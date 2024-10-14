@@ -18,7 +18,7 @@ const QuizPage = () => {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [apiFeedback, setApiFeedback] = useState<string | null>(null);
   const [showFinalFeedback, setShowFinalFeedback] = useState(false);
-  const [originalFileName, setOriginalFileName] = useState<string>(""); // Use original file name
+  const [originalFileName, setOriginalFileName] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean>(false);
   const [attempts, setAttempts] = useState<number[]>([]);
@@ -28,7 +28,7 @@ const QuizPage = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const quiz = urlParams.get("quiz");
-    const fileName = urlParams.get("originalFileName"); // Get the original file name
+    const fileName = urlParams.get("originalFileName");
 
     if (quiz && quiz !== "undefined" && quiz.length > 0) {
       const parsedQuiz = parseQuizContent(quiz);
@@ -87,11 +87,11 @@ const QuizPage = () => {
 
         return {
           question: questionPart.trim(),
-          options: options.slice(0, 4), // Ensure only four options
+          options: options.slice(0, 4),
           correctAnswer: correctAnswerLetter,
         };
       })
-      .filter((q) => q !== null) as QuizQuestion[]; // Filter out any null entries
+      .filter((q) => q !== null) as QuizQuestion[];
   };
 
   const fetchFeedback = async () => {
@@ -109,7 +109,7 @@ const QuizPage = () => {
         body: JSON.stringify({
           questions: quizContent.map(q => q.question),
           attempts,
-          originalFileName, // Use original file name
+          originalFileName,
         }),
       });
 
@@ -183,30 +183,40 @@ const QuizPage = () => {
   };
 
   const generatePracticeQuestions = async () => {
+    if (!originalFileName) {
+      console.error("Original file name is missing.");
+      return;
+    }
+
     try {
-      const response = await fetch('/api/generate-practice-questions', {
-        method: 'POST',
+      const response = await fetch("/api/get-feedback", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ incorrectQuestions, originalFileName }),
+        body: JSON.stringify({
+          questions: quizContent.map((q) => q.question),
+          attempts,
+          originalFileName,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate practice questions');
+        throw new Error("Failed to fetch feedback");
       }
 
       const data = await response.json();
-      setQuizContent(data.newQuestions);
+      const newQuizContent = parseQuizContent(data.feedback.join("\n"));
+      setQuizContent(newQuizContent);
       setCurrentQuestion(0);
       setSelectedAnswer(null);
       setFeedback(null);
       setIsCorrect(false);
-      setAttempts(new Array(data.newQuestions.length).fill(0));
+      setAttempts(new Array(newQuizContent.length).fill(0));
       setShowFinalFeedback(false);
     } catch (error) {
-      console.error('Error generating practice questions:', error);
-      setError('Could not generate practice questions. Try again later.');
+      console.error("Error generating practice questions:", error);
+      setError("Could not generate practice questions. Try again later.");
     }
   };
 
@@ -221,9 +231,7 @@ const QuizPage = () => {
   return (
     <div className="min-h-screen bg-black bg-gradient-preppal text-white flex flex-col items-center justify-center">
       {error && (
-        <div className="bg-red-500 text-white p-4 rounded mb-4">
-          {error}
-        </div>
+        <div className="bg-red-500 text-white p-4 rounded mb-4">{error}</div>
       )}
       <header className="absolute top-0 left-0 p-4">
         <div>
@@ -278,6 +286,12 @@ const QuizPage = () => {
           ) : (
             <div>No additional feedback required!</div>
           )}
+          <button
+            onClick={generatePracticeQuestions}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4"
+          >
+            Practice More
+          </button>
         </div>
       )}
 
@@ -296,16 +310,9 @@ const QuizPage = () => {
           onClick={handleNextQuestion}
           className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-4"
         >
-          {currentQuestion < quizContent.length - 1 ? "Next Question" : "Complete Quiz"}
-        </button>
-      )}
-
-      {showFinalFeedback && (
-        <button
-          onClick={generatePracticeQuestions}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4"
-        >
-          Practice More
+          {currentQuestion < quizContent.length - 1
+            ? "Next Question"
+            : "Practice More"}
         </button>
       )}
     </div>
