@@ -125,13 +125,13 @@ const QuizPage = () => {
       setShowFinalFeedback(true);
 
       // Call the delete API after feedback is displayed
-      await fetch('/api/delete-temp-file', {
+    /* await fetch('/api/delete-temp-file', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ tempFilePath }),
-      });
+      }); */
 
       console.log('Temporary file deleted successfully');
     } catch (error) {
