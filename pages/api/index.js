@@ -9,6 +9,7 @@ import cors from 'cors';
 import getFeedback from './get-feedback.js';
 import { fileURLToPath } from 'url';
 
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -235,7 +236,30 @@ app.post('/api/delete-temp-file', async (req, res) => {
   }
 });
 
-// Route for generating practice questions
+app.post('/api/cleanup', async (req, res) => {
+  try {
+     const uploadsDir = path.resolve(__dirname, 'D:\\New folder\\prepal\\pages\\api\\uploads');
+    const tempDir = path.join(__dirname, '../../temp');
+
+    // Delete all files in the uploads directory
+    const uploadFiles = await fs.readdir(uploadsDir);
+    for (const file of uploadFiles) {
+      await fs.unlink(path.join(uploadsDir, file));
+    }
+
+    // Delete all files in the temp directory
+    const tempFiles = await fs.readdir(tempDir);
+    for (const file of tempFiles) {
+      await fs.unlink(path.join(tempDir, file));
+    }
+
+    console.log("Uploads and temp folders cleaned up");
+    res.json({ message: "Cleanup successful" });
+  } catch (error) {
+    console.error("Error during cleanup:", error);
+    res.status(500).json({ error: "Failed to clean up folders" });
+  }
+});
 
 
 // Start the server

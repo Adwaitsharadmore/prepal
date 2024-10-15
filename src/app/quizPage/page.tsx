@@ -228,6 +228,27 @@ const QuizPage = () => {
     );
   }
 
+  const handleBackToHome = async () => {
+    try {
+await fetch("http://localhost:3001/api/cleanup", {
+  method: "POST",
+});
+      console.log("Cleanup successful");
+    } catch (error) {
+      console.error("Error during cleanup:", error);
+    } finally {
+      router.push("/");
+    }
+  };
+
+  if (!quizContent.length) {
+    return (
+      <div className="min-h-screen bg-black bg-gradient-preppal text-white flex flex-col items-center justify-center">
+        <h1 className="text-4xl font-semibold mb-6">Loading...</h1>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-black bg-gradient-preppal text-white flex flex-col items-center justify-center">
       {error && (
@@ -292,6 +313,12 @@ const QuizPage = () => {
           >
             Practice More
           </button>
+          <button
+            onClick={handleBackToHome}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mt-4"
+          >
+            Back to Home
+          </button>
         </div>
       )}
 
@@ -307,12 +334,32 @@ const QuizPage = () => {
 
       {isCorrect && (
         <button
-          onClick={handleNextQuestion}
+          onClick={
+            currentQuestion < quizContent.length - 1
+              ? handleNextQuestion
+              : generatePracticeQuestions
+          }
           className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-4"
         >
           {currentQuestion < quizContent.length - 1
             ? "Next Question"
             : "Practice More"}
+        </button>
+      )}
+      {!isCorrect && currentQuestion === quizContent.length - 1 && (
+        <button
+          onClick={generatePracticeQuestions}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4"
+        >
+          Practice More
+        </button>
+      )}
+      {!isCorrect && currentQuestion === quizContent.length - 1 && (
+        <button
+          onClick={handleBackToHome}
+          className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mt-4"
+        >
+          Back to Home
         </button>
       )}
     </div>
