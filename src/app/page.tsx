@@ -3,8 +3,9 @@
 import { useRef, useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { motion, useScroll, useTransform, useSpring, useInView, useAnimation } from 'framer-motion'
+import { motion, useScroll, useTransform, useSpring } from 'framer-motion'
 import { BookOpen, Brain, Calendar, FileText, MessageSquare, ChevronDown } from 'lucide-react'
+import { gsap } from 'gsap'
 
 // Define the props for the FeatureCard component
 interface FeatureCardProps {
@@ -72,40 +73,68 @@ export default function LandingPage() {
 }
 
 function HeroSection() {
-  const ref = useRef(null)
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start start", "end start"]
-  })
+  const ref = useRef(null);
 
-  const opacity = useTransform(scrollYProgress, [0, 1], [1, 0])
-  const scale = useTransform(scrollYProgress, [0, 1], [1, 0.8])
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      // Initially hide the lamp off-screen and set visibility to hidden
+      gsap.set(".letter-t", { opacity: 1 });
+      gsap.set(".animated-object", { visibility: 'hidden', y: -300, scale: 1 });
+
+      // Delay the start of the animation
+      setTimeout(() => {
+        gsap.to(".animated-object", {
+          visibility: 'visible',
+          opacity: 1,
+          y: 0,
+          duration: 1.5,
+          ease: "bounce.out",
+          onStart: () => {
+            // Fade out the "T"
+            gsap.to(".letter-t", { opacity: 0, duration: 0.5, ease: "power1.inOut" });
+          },
+        });
+      }, 700); // Start animation after 0.7 seconds
+    }, ref);
+
+    return () => ctx.revert();
+  }, []);
 
   return (
-    <motion.section 
+    <motion.section
       ref={ref}
-      style={{ opacity, scale }}
       className="min-h-screen flex flex-col justify-center items-center text-center px-4"
     >
-      <motion.h1
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="text-5xl md:text-7xl font-bold mb-6 leading-tight"
-      >
-        Revolutionize Your<br />
-        <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
-          Productivity
+      <h1 className="text-8xl md:text-9xl font-bold mb-6 leading-tight tracking-wide">
+        <span className="hero-text">
+          <span className="inline-block">Revolu</span>
+          <span className="inline-block relative" style={{ position: 'relative', width: '100px' }}>
+            <span className="letter-t inline-block">T</span>
+            <Image
+              src="/images/lamp.png"
+              alt="Lamp"
+              width={100}
+              height={100}
+              className="absolute animated-object"
+              style={{
+                top: '0px', // Align the top of the lamp with the text baseline
+                left: '0px',
+                position: 'absolute',
+              }}
+            />
+          </span>
+          <span className="inline-block">ionize</span>
         </span>
-      </motion.h1>
-      <motion.p
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-        className="text-xl md:text-2xl mb-12 max-w-3xl"
-      >
-        Harness the power of AI to streamline your workflow and boost efficiency.
-      </motion.p>
+        <span className="hero-text block mt-4">
+          {"Your".split("").map((char, index) => (
+            <span key={index} className="letter inline-block">{char}</span>
+          ))}
+          <span className="inline-block mx-2"></span>
+          {"Productivity".split("").map((char, index) => (
+            <span key={index} className="letter inline-block">{char}</span>
+          ))}
+        </span>
+      </h1>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -126,7 +155,7 @@ function HeroSection() {
         <ChevronDown className="w-8 h-8" />
       </motion.div>
     </motion.section>
-  )
+  );
 }
 
 function HorizontalScrollSection() {
@@ -174,27 +203,43 @@ function HorizontalScrollSection() {
 }
 
 function CubeToFeaturesSection() {
-  const containerRef = useRef(null);
+  const containerRef = useRef(null)
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end start"],
-  });
+  })
 
   // Define the transitions for cube animation and transformation
-  const cubeRotate = useTransform(scrollYProgress, [0, 0.5], [0, 180]); // Cube rotates
-  const cubeScale = useTransform(scrollYProgress, [0, 0.5], [1, 10]); // Cube scales up
-  const cubeOpacity = useTransform(scrollYProgress, [0.4, 0.5], [1, 0]); // Cube fades out
-  const featuresOpacity = useTransform(scrollYProgress, [0.5, 0.6], [0, 1]); // Features fade in
+  const cubeRotate = useTransform(scrollYProgress, [0, 0.5], [0, 180]) // Cube rotates
+  const cubeScale = useTransform(scrollYProgress, [0, 0.5], [1, 10]) // Cube scales up
+  const cubeOpacity = useTransform(scrollYProgress, [0.4, 0.5], [1, 0]) // Cube fades out
+  const featuresOpacity = useTransform(scrollYProgress, [0.5, 0.6], [0, 1]) // Features fade in
+
+  // Background color that changes after the cube's animation is done
+  const [backgroundColor, setBackgroundColor] = useState("transparent")
+
+  // Watch the scroll progress and update the background color when the cube fades out
+  useEffect(() => {
+    scrollYProgress.onChange((value) => {
+      if (value > 0.5) {
+        // After the cube fades out, change the background color to the cube's color (cyan-400)
+        setBackgroundColor("#22d3ee") // Tailwind's cyan-400 hex code
+      } else {
+        // Before that, keep the background transparent
+        setBackgroundColor("transparent")
+      }
+    })
+  }, [scrollYProgress])
 
   const features = [
     { icon: <FileText className="w-12 h-12 text-cyan-400" />, title: "Smart Analysis", description: "AI-powered insights to optimize your workflow." },
     { icon: <Brain className="w-12 h-12 text-pink-400" />, title: "Adaptive Learning", description: "Personalized suggestions that evolve with your needs." },
     { icon: <Calendar className="w-12 h-12 text-purple-400" />, title: "Time Management", description: "Efficient scheduling to maximize productivity." },
     { icon: <MessageSquare className="w-12 h-12 text-green-400" />, title: "Collaborative Tools", description: "Seamless integration with your team's workflow." },
-  ];
+  ]
 
   return (
-    <section ref={containerRef} className="min-h-[200vh] relative">
+    <section ref={containerRef} className="min-h-[200vh] relative" style={{ backgroundColor: backgroundColor, transition: "background-color 0.8s ease" }}>
       <div className="sticky top-0 h-screen flex items-center justify-center">
         {/* Cube Animation */}
         <motion.div
@@ -233,7 +278,7 @@ function CubeToFeaturesSection() {
         </motion.div>
       </div>
     </section>
-  );
+  )
 }
 
 function FeaturesSection() {
