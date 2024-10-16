@@ -189,7 +189,7 @@ const QuizPage = () => {
     }
 
     try {
-      const response = await fetch("/api/get-feedback", {
+      const response = await fetch("/api/get-morequestions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
