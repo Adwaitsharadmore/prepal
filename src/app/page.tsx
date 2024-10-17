@@ -77,11 +77,33 @@ function HeroSection() {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // Initially hide the lamp off-screen and set visibility to hidden
-      gsap.set(".letter-t", { opacity: 1 });
-      gsap.set(".animated-object", { visibility: 'hidden', y: -300, scale: 1 });
+      // Animate the "R" to flip into position
+      gsap.fromTo(".letter-r", 
+        { rotateX: 90, transformOrigin: "bottom center" }, 
+        { rotateX: 0, duration: 1, ease: "power2.out", delay: 0.3 }
+      );
 
-      // Delay the start of the animation
+      // Initially hide the ruler and set the lamp off-screen
+      gsap.set(".ruler-v", { opacity: 0 });
+      gsap.set(".animated-object", { visibility: 'hidden', y: -300, opacity: 0 });
+
+      // Animate the "v" to flip and disappear
+      gsap.to(".letter-v", {
+        rotateY: 180,
+        duration: 1,
+        ease: "power2.out",
+        delay: 0.5,
+        onComplete: () => {
+          gsap.set(".letter-v", { opacity: 0 });
+          gsap.to(".ruler-v", {
+            opacity: 1,
+            duration: 0.5,
+            ease: "power2.out",
+          });
+        },
+      });
+
+      // Lamp drop animation
       setTimeout(() => {
         gsap.to(".animated-object", {
           visibility: 'visible',
@@ -90,11 +112,17 @@ function HeroSection() {
           duration: 1.5,
           ease: "bounce.out",
           onStart: () => {
-            // Fade out the "T"
             gsap.to(".letter-t", { opacity: 0, duration: 0.5, ease: "power1.inOut" });
           },
         });
-      }, 700); // Start animation after 0.7 seconds
+      }, 700);
+
+      // Swing animation for the "y"
+      gsap.fromTo(".letter-y", 
+        { rotate: -58, transformOrigin: "top left" }, 
+        { rotate: 0, duration: 1, ease: "elastic.out(1, 0.3)", delay: 1 }
+      );
+
     }, ref);
 
     return () => ctx.revert();
@@ -105,19 +133,35 @@ function HeroSection() {
       ref={ref}
       className="min-h-screen flex flex-col justify-center items-center text-center px-4"
     >
-      <h1 className="text-8xl md:text-9xl font-bold mb-6 leading-tight tracking-wide">
-        <span className="hero-text">
-          <span className="inline-block">Revolu</span>
-          <span className="inline-block relative" style={{ position: 'relative', width: '100px' }}>
-            <span className="letter-t inline-block">T</span>
+      <h1 className="text-7xl md:text-[9rem] font-bold mb-6 leading-tight tracking-wide">
+        <span className="hero-text flex -mt-4">
+          <span className="letter-r inline-block">R</span>
+          <span className="inline-block">e</span>
+          <span className="inline-block relative" style={{ width: '100px', height: '120px', display: 'inline-flex', alignItems: 'flex-end' }}>
+            <span className="letter-v absolute text-9xl">v</span>
+            <Image 
+              src="/images/ruler.png" 
+              alt="Ruler" 
+              width={100} 
+              height={120} 
+              className="ruler-v absolute" 
+              style={{
+                top: '70px',
+                left: '0px',
+              }}
+            />
+          </span>
+          <span className="inline-block">olu</span>
+          <span className="inline-block relative" style={{ position: 'relative', width: '80px', display: 'inline-flex', alignItems: 'center' }}>
+            <span className="letter-t inline-block">t</span>
             <Image
               src="/images/lamp.png"
               alt="Lamp"
-              width={100}
-              height={100}
+              width={80}
+              height={80}
               className="absolute animated-object"
               style={{
-                top: '0px', // Align the top of the lamp with the text baseline
+                top: '60px',
                 left: '0px',
                 position: 'absolute',
               }}
@@ -125,14 +169,11 @@ function HeroSection() {
           </span>
           <span className="inline-block">ionize</span>
         </span>
-        <span className="hero-text block mt-4">
-          {"Your".split("").map((char, index) => (
+        <span className="hero-text block mt-4 text-7xl md:text-[9rem] ml-[4rem]">
+          {"Productivit".split("").map((char, index) => (
             <span key={index} className="letter inline-block">{char}</span>
           ))}
-          <span className="inline-block mx-2"></span>
-          {"Productivity".split("").map((char, index) => (
-            <span key={index} className="letter inline-block">{char}</span>
-          ))}
+          <span className="letter-y inline-block">y</span>
         </span>
       </h1>
       <motion.div
